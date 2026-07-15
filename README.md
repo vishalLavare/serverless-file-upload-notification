@@ -183,55 +183,75 @@ To complete the serverless loop on AWS:
      ```python
      import json
      import boto3
-     import os
-     
-     s3 = boto3.client('s3')
-     sns = boto3.client('sns')
-     
-     OUTPUT_BUCKET = "serverless-output-yourname"
-     SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN")
-     
+     s3 = boto3.client("s3")
+     sns = boto3.client("sns")
+
+     OUTPUT_BUCKET = "serverless-file-processing-system"
+     SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:142166253229:serverless-SNS"
+
      def lambda_handler(event, context):
-         # Extract bucket and file name from the event
-         bucket = event['Records'][0]['s3']['bucket']['name']
-         key = event['Records'][0]['s3']['object']['key']
-         
-         # Read file from input S3
-         response = s3.get_object(Bucket=bucket, Key=key)
-         text = response['Body'].read().decode('utf-8')
-         
-         # Process: Count words
-         word_count = len(text.split())
-         char_count = len(text)
-         
-         report = {
-             "filename": key,
-             "word_count": word_count,
-             "char_count": char_count,
-             "status": "Processed"
-         }
-         
-         # Save report to Output Bucket
-         output_key = f"processed_{key}.json"
-         s3.put_object(
-             Bucket=OUTPUT_BUCKET,
-             Key=output_key,
-             Body=json.dumps(report, indent=4),
-             ContentType='application/json'
-         )
-         
-         # Send SNS Email Notification
-         message = f"File processed: {key}\nWord Count: {word_count}\nSaved to: {output_key}"
-         sns.publish(
-             TopicArn=SNS_TOPIC_ARN,
-             Subject="File Processing Complete",
-             Message=message
-         )
-         
-         return {
-             'statusCode': 200,
-             'body': json.dumps('File processed successfully')
-         }
+
+    print(json.dumps(event))
+
+    bucket = event["Records"][0]["s3"]["bucket"]["name"]
+    key = event["Records"][0]["s3"]["object"]["key"]
+
+    if key.startswith("processed_") or key.endswith(".json"):
+        return {
+            "statusCode": 200,
+            "body": "Skipped"
+        }
+
+    response = s3.get_object(
+        Bucket=bucket,
+        Key=key
+    )
+
+    text = response["Body"].read().decode("utf-8")
+
+    word_count = len(text.split())
+    char_count = len(text)
+
+    report = {
+        "filename": key,
+        "word_count": word_count,
+        "char_count": char_count
+    }
+
+    output_key = f"processed_{key}.json"
+
+    s3.put_object(
+        Bucket=OUTPUT_BUCKET,
+        Key=output_key,
+        Body=json.dumps(report, indent=4),
+        ContentType="application/json"
+    )
+
+    message = f"""
+File Processed Successfully
+
+Bucket: {bucket}
+File: {key}
+
+Word Count: {word_count}
+Character Count: {char_count}
+
+Report:
+{output_key}
+"""
+
+    response = sns.publish(
+        TopicArn=SNS_TOPIC_ARN,
+        Subject="File Processed Successfully",
+        Message=message
+    )
+
+    print(response)
+
+    return {
+        "statusCode": 200,
+        "body": "Success"
+    }
      ```
 
 3. **S3 Event Notification**:
