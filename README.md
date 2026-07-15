@@ -135,10 +135,10 @@ pip install -r requirements.txt
 #### Configure Environment Variables
 Create a file named `.env` in the `backend/` directory and populate it:
 ```env
-AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
-AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-AWS_REGION=ap-south-1
-S3_BUCKET_NAME=serverless-input-yourname
+AWS_ACCESS_KEY_ID=your access key id
+AWS_SECRET_ACCESS_KEY=your secret access key
+AWS_REGION=your region
+S3_BUCKET_NAME=your bucket name
 ```
 
 #### Running the Backend
