@@ -9,8 +9,9 @@
   <img src="https://img.shields.io/badge/SNS-Amazon_SNS-blue?style=for-the-badge&logo=amazonsns" alt="Amazon SNS" />
 </p>
 
----
+🚀 **[View Live Demo](https://vishallavare.github.io/Serverless-File-Processing-System/frontend/)** *(Ensure GitHub Pages is enabled)*
 
+---
 ## 📖 Project Overview
 
 The **Serverless File Processing System** is a complete, production-ready Serverless File Upload & Processing application. It features a robust **FastAPI** backend in Python, a modern, highly aesthetic web client interface built with **HTML5, CSS3, and JavaScript (Bootstrap 5)**, and integrated AWS serverless infrastructure (**Amazon S3**, **AWS Lambda**, and **Amazon SNS**).
