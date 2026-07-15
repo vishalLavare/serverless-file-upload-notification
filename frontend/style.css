@@ -51,6 +51,23 @@ body.dark-theme {
   --secondary-soft: rgba(148, 163, 184, 0.15);
   
   --preview-bg: rgba(30, 41, 59, 0.75);
+
+  /* Bootstrap Dark Mode Overrides */
+  --bs-body-color: #f1f5f9;
+  --bs-body-color-rgb: 241, 245, 249;
+  --bs-secondary-color: #94a3b8;
+  --bs-secondary-rgb: 148, 163, 184;
+}
+
+/* Ensure helper classes use the light mode colors when dark theme is active */
+body.dark-theme .text-body {
+  color: var(--text-main) !important;
+}
+body.dark-theme .text-secondary {
+  color: var(--text-muted) !important;
+}
+body.dark-theme .text-muted {
+  color: var(--text-muted) !important;
 }
 
 /* ==========================================================================

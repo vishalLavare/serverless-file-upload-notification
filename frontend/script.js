@@ -134,9 +134,11 @@ function initTheme() {
   
   if (savedTheme === "dark" || (!savedTheme && systemPrefersDark)) {
     bodyEl.classList.add("dark-theme");
+    bodyEl.setAttribute("data-bs-theme", "dark");
     themeToggleIcon.className = "bi bi-sun-fill";
   } else {
     bodyEl.classList.remove("dark-theme");
+    bodyEl.removeAttribute("data-bs-theme");
     themeToggleIcon.className = "bi bi-moon-stars-fill";
   }
 }
@@ -144,11 +146,13 @@ function initTheme() {
 function toggleTheme() {
   if (bodyEl.classList.contains("dark-theme")) {
     bodyEl.classList.remove("dark-theme");
+    bodyEl.removeAttribute("data-bs-theme");
     themeToggleIcon.className = "bi bi-moon-stars-fill";
     localStorage.setItem("theme", "light");
     showToast("Theme switched to Light Mode", "info");
   } else {
     bodyEl.classList.add("dark-theme");
+    bodyEl.setAttribute("data-bs-theme", "dark");
     themeToggleIcon.className = "bi bi-sun-fill";
     localStorage.setItem("theme", "dark");
     showToast("Theme switched to Dark Mode", "info");
