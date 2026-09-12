@@ -83,20 +83,52 @@ S3_BUCKET_NAME=serverless-input-yourname
   Server Running
   ```
 
+### POST `/create-folder`
+- **Description**: Explicitly creates an Amazon S3 directory marker (`folder1/`).
+- **Form Parameters**:
+  - `folder`: Folder name to create (e.g. `folder1`, `folder2`, `folder3`).
+- **Response**:
+  ```json
+  {
+    "status": "success",
+    "message": "Folder 'folder1' created in S3 bucket.",
+    "folder": "folder1",
+    "key": "folder1/",
+    "s3_uri": "s3://your-bucket/folder1/"
+  }
+  ```
+
 ### POST `/upload`
-- **Description**: Uploads a single text file. Must be sent as a multipart/form-data request.
-- **Request Parameters**:
-  - `file`: File payload (must end with `.txt`, max size of 10 MB).
+- **Description**: Uploads single or multiple text files to Amazon S3 under an optional folder prefix.
+- **Form/File Parameters**:
+  - `files`: One or more text files (each ending with `.txt`, max 10 MB per file).
+  - `file`: Single file (supported for backward compatibility).
+  - `folder` *(optional)*: Destination folder path (e.g. `folder1`, `folder2`, `folder3`).
 - **Responses**:
   - **200 OK** (Successful Upload):
     ```json
     {
       "status": "success",
-      "message": "File uploaded successfully",
-      "filename": "sample.txt"
+      "message": "Successfully uploaded 1 file in folder 'folder1' to S3.",
+      "filename": "sample.txt",
+      "count": 1,
+      "folder": "folder1",
+      "s3_url": "https://your-bucket.s3.ap-south-1.amazonaws.com/folder1/sample.txt",
+      "s3_uri": "s3://your-bucket/folder1/sample.txt",
+      "file_url": "https://your-bucket.s3.ap-south-1.amazonaws.com/folder1/sample.txt",
+      "uploaded_files": [
+        {
+          "filename": "sample.txt",
+          "key": "folder1/sample.txt",
+          "folder": "folder1",
+          "size": 1024,
+          "s3_url": "https://your-bucket.s3.ap-south-1.amazonaws.com/folder1/sample.txt",
+          "s3_uri": "s3://your-bucket/folder1/sample.txt"
+        }
+      ]
     }
     ```
-  - **400 Bad Request** (Invalid extension or name):
+  - **400 Bad Request** (Invalid extension or empty file):
     ```json
     {
       "status": "error",

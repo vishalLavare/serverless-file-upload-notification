@@ -8,9 +8,6 @@
   <img src="https://img.shields.io/badge/S3-Amazon_S3-red?style=for-the-badge&logo=amazons3" alt="Amazon S3" />
   <img src="https://img.shields.io/badge/SNS-Amazon_SNS-blue?style=for-the-badge&logo=amazonsns" alt="Amazon SNS" />
 </p>
-
-
-
 ---
 ## 📖 Project Overview
 
@@ -74,15 +71,21 @@ The system follows a fully decoupled, reactive event-driven model:
 ### 🎨 Frontend Features
 - **Aesthetic Cloud Dashboard**: Modern custom layout with rich blue radial gradients, CSS transitions, and glassmorphism styling.
 - **Dark Mode Support**: Seamless dynamic dark/light mode toggle with state persistence in `localStorage`.
-- **Drag & Drop Upload**: Interactive drag-over zones that light up and accept file payloads.
-- **Client-Side Validations**: Enforces `.txt` extension limit and `< 10 MB` size threshold instantly before sending to the backend.
-- **Real-Time Preview**: Displays text file content within an interactive scroll panel prior to upload.
-- **Upload Progress Tracker**: Uses `XMLHttpRequest` progress metrics to drive a Bootstrap progress bar and percentage display.
-- **Recent Uploads History**: A client-side log (stored in `localStorage`) displaying the status, size, and timestamp of recent attempts.
+- **S3 Target Folder Selection**: Set or create custom S3 folders (e.g., `folder1/`, `folder2/`, `folder3/`) with live destination path badges and quick suggestion chips.
+- **Multi-File Batch Upload**: Upload multiple `.txt` files at once via multi-file file browser or drag-and-drop.
+- **Selected Files Queue & Preview**: Inspect queued files, see individual sizes, remove files before upload, and preview text content.
+- **Client-Side Validations**: Enforces `.txt` extension limit and `< 10 MB` per-file size threshold instantly before sending to the backend.
+- **Upload Progress Tracker**: Real-time `XMLHttpRequest` progress metrics driving dynamic progress bars and percentage indicators.
+- **Interactive S3 File URL Cards**: Prominently renders direct S3 URLs upon upload with one-click **Copy URL** and **Open File** buttons.
+- **Recent Uploads History**: Client-side log displaying folder paths, file sizes, timestamps, and direct **Copy URL** / **Open S3 URL** links.
 - **Interactive Toasts**: Clean toast alerts that announce results in color-coded overlays.
 
 ### ⚙️ Backend Features
 - **FastAPI Engine**: Asynchronous architecture providing rapid processing and automatic Swagger documentation.
+- **Folder & Prefix Management**: Dynamically routes uploads into folder prefixes and creates explicit S3 directory markers (`folder1/`, `folder2/`, etc.) for seamless AWS S3 Console browsing.
+- **Multi-File Batch Processing**: Robust batch upload endpoint (`POST /upload`) supporting simultaneous multi-file streams with deduplication safeguards.
+- **Explicit Folder Creation**: Dedicated `POST /create-folder` endpoint to create S3 folder markers directly.
+- **Direct S3 URL & URI Generation**: Automatically generates virtual-hosted HTTPS URLs (`https://<bucket>.s3.<region>.amazonaws.com/<key>`) and S3 URIs (`s3://<bucket>/<key>`).
 - **Robust S3 Integration**: Native `boto3` streams upload file buffers straight into S3 without loading them into server memory unnecessarily.
 - **AWS Exception Parser**: Automatically intercepts boto3 runtime exceptions (like missing IAM keys, bad bucket configurations, network outages) and converts them into structured HTTP responses.
 - **Unified Logging**: Outputs application telemetry (such as initialization details, upload start, size checkpoints, completions, and exceptions) cleanly using standard python logging.
@@ -342,33 +345,94 @@ For secure, least-privilege AWS integration, attach a policy similar to the foll
 
 ## 📊 API Specification
 
-### Endpoint: `POST /upload`
-Uploads a text file to the configured Amazon S3 input bucket.
+### 1. Endpoint: `POST /upload`
+Uploads single or multiple text files to the configured Amazon S3 bucket under an optional folder prefix.
 
 - **Request Content Type**: `multipart/form-data`
 - **Body parameters**:
-  - `file`: The text file payload (validated backend-side to ensure `.txt` extension and size < 10MB)
-
+  - `files`: Single or multiple `.txt` file payloads (max 10 MB per file).
+  - `file`: Single `.txt` file payload (supported for backwards compatibility).
+  - `folder` *(optional)*: Target folder path prefix (e.g., `folder1`, `folder2`, `folder3`).
 - **Success Response (200 OK)**:
   ```json
   {
-      "message": "File uploaded successfully"
+      "status": "success",
+      "message": "Successfully uploaded 2 files in folder 'folder3' to S3.",
+      "filename": "sample1.txt",
+      "count": 2,
+      "folder": "folder3",
+      "s3_url": "https://storage-bucket.s3.ap-south-1.amazonaws.com/folder3/sample1.txt",
+      "s3_uri": "s3://storage-bucket/folder3/sample1.txt",
+      "file_url": "https://storage-bucket.s3.ap-south-1.amazonaws.com/folder3/sample1.txt",
+      "uploaded_files": [
+          {
+              "filename": "sample1.txt",
+              "key": "folder3/sample1.txt",
+              "folder": "folder3",
+              "size": 128,
+              "s3_url": "https://storage-bucket.s3.ap-south-1.amazonaws.com/folder3/sample1.txt",
+              "s3_uri": "s3://storage-bucket/folder3/sample1.txt"
+          },
+          {
+              "filename": "sample2.txt",
+              "key": "folder3/sample2.txt",
+              "folder": "folder3",
+              "size": 256,
+              "s3_url": "https://storage-bucket.s3.ap-south-1.amazonaws.com/folder3/sample2.txt",
+              "s3_uri": "s3://storage-bucket/folder3/sample2.txt"
+          }
+      ]
   }
   ```
 
 - **Example Error Responses**:
-  - **400 Bad Request** (Invalid file format):
+  - **400 Bad Request** (Invalid file format or missing file):
     ```json
     {
-        "detail": "Only .txt files are allowed."
+        "status": "error",
+        "message": "Invalid file extension. Only '.txt' files are allowed."
+    }
+    ```
+  - **413 Payload Too Large** (File size > 10MB):
+    ```json
+    {
+        "status": "error",
+        "message": "File size exceeds the maximum limit of 10MB."
     }
     ```
   - **500 Internal Server Error** (AWS credentials missing):
     ```json
     {
-        "detail": "AWS credentials not found. S3 client authentication failed."
+        "status": "error",
+        "message": "AWS credentials not found. S3 client authentication failed."
     }
     ```
+
+---
+
+### 2. Endpoint: `POST /create-folder`
+Creates an explicit directory marker object in Amazon S3 (e.g., `folder1/`) so the AWS S3 Management Console displays the folder with an interactive folder icon.
+
+- **Request Content Type**: `application/x-www-form-urlencoded` or `multipart/form-data`
+- **Body parameters**:
+  - `folder`: The target folder name (e.g., `folder1`, `folder2`, `folder3`).
+- **Success Response (200 OK)**:
+  ```json
+  {
+      "status": "success",
+      "message": "Folder 'folder1' created in S3 bucket.",
+      "folder": "folder1",
+      "key": "folder1/",
+      "s3_uri": "s3://storage-bucket/folder1/"
+  }
+  ```
+
+---
+
+### 3. Endpoint: `GET /`
+- **Description**: Backend health check.
+- **Response Type**: `text/plain`
+- **Response**: `Server Running`
 
 ---
 
