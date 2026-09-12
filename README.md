@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/SNS-Amazon_SNS-blue?style=for-the-badge&logo=amazonsns" alt="Amazon SNS" />
 </p>
 
-🚀 **[View Live Demo](https://vishallavare.github.io/Serverless-File-Processing-System/frontend/)**
+🚀 **[View Live Demo](https://vishallavare.github.io/Serverless-File-Processing-System/)**
 
 ---
 ## 📖 Project Overview
@@ -118,7 +118,7 @@ Serverless File Processing System/
 │   ├── .env                # Local AWS Credentials (secrets)
 │   └── README.md           # Backend specific readme
 │
-├── frontend/
+├── docs/
 │   ├── index.html          # Dashboard HTML structure
 │   ├── style.css           # Layouts, themes, animations, & variables
 │   └── script.js           # Client actions, requests, & theme toggle
@@ -189,15 +189,16 @@ uvicorn app:app --reload --host 127.0.0.1 --port 8000
 Since the frontend is built using standard Vanilla JavaScript, HTML5, and CSS3, it does not require a compilation step.
 
 #### Running the Frontend
-You can open `frontend/index.html` in your web browser:
-- **Option A (Simple)**: Double-click the `frontend/index.html` file to open it directly (`file://` protocol).
+You can open `docs/index.html` in your web browser:
+- **Option A (Simple)**: Double-click the `docs/index.html` file to open it directly (`file://` protocol).
 - **Option B (Recommended)**: Serve the files using a local HTTP server:
   ```bash
-  # Using Python (from the frontend directory):
-  cd frontend
+  # Using Python (from the docs directory):
+  cd docs
   python -m http.server 5500
   ```
   Open `http://127.0.0.1:5500` in your browser.
+
 
 ---
 

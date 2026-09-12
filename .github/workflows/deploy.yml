@@ -145,12 +145,13 @@ jobs:
         env:
           EC2_HOST: ${{ secrets.EC2_HOST || vars.EC2_HOST_TEST }}
         run: |
-          echo "🔧 Updating BACKEND_URL in frontend/script.js to http://$EC2_HOST:8000..."
-          sed -i "s|http://127.0.0.1:8000|http://$EC2_HOST:8000|g" frontend/script.js
-          grep "const BACKEND_URL" frontend/script.js
+          echo "🔧 Updating BACKEND_URL in docs/script.js to http://$EC2_HOST:8000..."
+          sed -i "s|http://127.0.0.1:8000|http://$EC2_HOST:8000|g" docs/script.js
+          grep "const BACKEND_URL" docs/script.js
 
       - name: Sync Frontend Assets to S3 Bucket
         run: |
           echo "📤 Uploading files to s3://${{ secrets.S3_FRONTEND_BUCKET }}..."
-          aws s3 sync frontend/ s3://${{ secrets.S3_FRONTEND_BUCKET }} --delete --cache-control "max-age=0, no-cache, no-store, must-revalidate"
+          aws s3 sync docs/ s3://${{ secrets.S3_FRONTEND_BUCKET }} --delete --cache-control "max-age=0, no-cache, no-store, must-revalidate"
           echo "✅ S3 Frontend deployment finished successfully!"
+

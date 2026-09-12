@@ -1,11 +1,14 @@
+import os
 import logging
-from fastapi import APIRouter, UploadFile, File, HTTPException, status
+from typing import List, Optional
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status
 from fastapi.responses import PlainTextResponse
 from botocore.exceptions import ClientError, NoCredentialsError, PartialCredentialsError
 
 from s3_service import S3Service
 from utils import (
     validate_uploaded_file,
+    sanitize_folder_path,
     create_success_response,
     create_error_response
 )
@@ -30,40 +33,99 @@ def read_root():
     return "Server Running"
 
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(
+    file: Optional[UploadFile] = File(None),
+    files: Optional[List[UploadFile]] = File(None),
+    folder: Optional[str] = Form("")
+):
     """
     Upload endpoint.
-    Accepts a multipart file upload, validates it, and uploads it to Amazon S3.
+    Accepts single or multiple multipart file uploads and an optional folder path.
+    Validates files and uploads each to Amazon S3 under the specified folder prefix.
     
     Returns:
-        JSONResponse: Standardized JSON success or error message.
+        JSONResponse: Standardized JSON success message with list of uploaded files, keys, and S3 URLs.
     """
-    filename = file.filename
-    logger.info(f"Upload started: received file '{filename}'.")
+    # Consolidate uploaded files list
+    upload_list: List[UploadFile] = []
+    if files:
+        upload_list.extend([f for f in files if f and f.filename])
+    if file and file.filename and file not in upload_list:
+        upload_list.append(file)
+        
+    if not upload_list:
+        logger.warning("Upload rejected: No file provided in request.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No file selected. Please select at least one file to upload."
+        )
+
+    # Sanitize folder prefix (e.g. "folder1", "folder2/subfolder", or empty "")
+    clean_folder = sanitize_folder_path(folder)
+    logger.info(f"Upload initiated: {len(upload_list)} file(s) targeting folder '{clean_folder or 'root'}'.")
+
+    uploaded_results = []
     
     try:
-        # Determine file size by seeking to the end, then resetting the file cursor
-        file.file.seek(0, 2)
-        file_size = file.file.tell()
-        file.file.seek(0)
+        # Validate all files first before attempting S3 uploads
+        for f in upload_list:
+            clean_name = os.path.basename(f.filename.replace("\\", "/"))
+            f.file.seek(0, 2)
+            file_size = f.file.tell()
+            f.file.seek(0)
+            
+            logger.info(f"Validating file metadata: '{clean_name}', size={file_size} bytes.")
+            validate_uploaded_file(clean_name, file_size)
+
+        # Proceed to upload each file to Amazon S3
+        for f in upload_list:
+            clean_name = os.path.basename(f.filename.replace("\\", "/"))
+            f.file.seek(0, 2)
+            file_size = f.file.tell()
+            f.file.seek(0)
+
+            # Build full object key (e.g. "folder3/myfile.txt" or "myfile.txt")
+            object_key = f"{clean_folder}/{clean_name}" if clean_folder else clean_name
+            
+            logger.info(f"Uploading file '{clean_name}' to S3 key '{object_key}'...")
+            upload_meta = s3_service.upload_file_object(f.file, object_key)
+            
+            uploaded_results.append({
+                "filename": clean_name,
+                "key": object_key,
+                "folder": clean_folder,
+                "size": file_size,
+                "s3_url": upload_meta["s3_url"],
+                "s3_uri": upload_meta["s3_uri"],
+                "presigned_url": upload_meta.get("presigned_url", "")
+            })
+
+        count = len(uploaded_results)
+        primary_file = uploaded_results[0]["filename"] if uploaded_results else ""
+        primary_url = uploaded_results[0]["s3_url"] if uploaded_results else ""
+        primary_uri = uploaded_results[0]["s3_uri"] if uploaded_results else ""
         
-        logger.info(f"Validating file metadata: name='{filename}', size={file_size} bytes.")
-        # Validate file size and extension (.txt only)
-        validate_uploaded_file(filename, file_size)
-        
-        # Upload the file stream to Amazon S3 using the S3 Service
-        logger.info(f"Uploading file '{filename}' to S3...")
-        s3_service.upload_file_object(file.file, filename)
-        
-        logger.info(f"Upload completed successfully: '{filename}'.")
+        folder_desc = f" in folder '{clean_folder}'" if clean_folder else ""
+        success_msg = f"Successfully uploaded {count} file{'s' if count > 1 else ''}{folder_desc} to S3."
+        logger.info(f"Upload batch finished: {success_msg}")
+
         return create_success_response(
-            message="File uploaded successfully",
-            filename=filename
+            message=success_msg,
+            filename=primary_file,
+            extra_info={
+                "count": count,
+                "folder": clean_folder,
+                "s3_url": primary_url,
+                "s3_uri": primary_uri,
+                "file_url": primary_url,
+                "uploaded_files": uploaded_results
+            }
         )
+
         
     except HTTPException as http_exc:
         # Re-raise HTTPExceptions from validation logic
-        logger.warning(f"Validation failed for file '{filename}': {http_exc.detail}")
+        logger.warning(f"Validation failed: {http_exc.detail}")
         raise http_exc
         
     except NoCredentialsError:

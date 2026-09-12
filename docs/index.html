@@ -69,35 +69,91 @@
               <div class="icon-shape bg-primary-soft me-3 rounded-3">
                 <i class="bi bi-cloud-upload-fill text-primary fs-4"></i>
               </div>
-              <h2 class="h4 card-title mb-0" id="upload-card-header">Secure Upload Portal</h2>
+              <div>
+                <h2 class="h4 card-title mb-0" id="upload-card-header">Secure Upload Portal</h2>
+                <span class="text-muted small">Store single or multiple files into custom S3 folders</span>
+              </div>
+            </div>
+
+            <!-- S3 Destination Folder Selector -->
+            <div class="folder-selection-panel mb-4 p-3 rounded-3 bg-folder-soft border border-light-subtle">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label for="folder-input" class="form-label fw-semibold text-body small mb-0 d-flex align-items-center">
+                  <i class="bi bi-folder-fill text-warning me-2 fs-5"></i> Target S3 Folder
+                </label>
+                <span class="badge bg-secondary-soft text-muted font-monospace" style="font-size: 0.72rem;" id="folder-path-badge">
+                  Path: /&lt;filename&gt;
+                </span>
+              </div>
+              
+              <div class="input-group mb-2">
+                <span class="input-group-text bg-transparent border-end-0 text-muted">
+                  <i class="bi bi-folder2-open"></i>
+                </span>
+                <input type="text" class="form-control border-start-0 font-monospace small" id="folder-input" 
+                       placeholder="e.g. folder1, folder2, folder3 (or leave blank for root)" autocomplete="off">
+                <button class="btn btn-outline-secondary dropdown-toggle px-3" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Folder Presets">
+                  Presets
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                  <li><h6 class="dropdown-header">Quick Presets</h6></li>
+                  <li><button class="dropdown-item folder-preset-btn" type="button" data-folder=""><i class="bi bi-house me-2"></i>Root (No Folder)</button></li>
+                  <li><button class="dropdown-item folder-preset-btn" type="button" data-folder="folder1"><i class="bi bi-folder me-2"></i>folder1/</button></li>
+                  <li><button class="dropdown-item folder-preset-btn" type="button" data-folder="folder2"><i class="bi bi-folder me-2"></i>folder2/</button></li>
+                  <li><button class="dropdown-item folder-preset-btn" type="button" data-folder="folder3"><i class="bi bi-folder me-2"></i>folder3/</button></li>
+                  <li><button class="dropdown-item folder-preset-btn" type="button" data-folder="documents"><i class="bi bi-folder me-2"></i>documents/</button></li>
+                  <li><button class="dropdown-item folder-preset-btn" type="button" data-folder="reports"><i class="bi bi-folder me-2"></i>reports/</button></li>
+                </ul>
+              </div>
+
+              <!-- Quick suggestion chips -->
+              <div class="d-flex align-items-center gap-1 flex-wrap">
+                <span class="text-muted small me-1" style="font-size: 0.75rem;">Suggestions:</span>
+                <button type="button" class="btn btn-sm folder-chip-btn rounded-pill px-2 py-0" data-folder="">root/</button>
+                <button type="button" class="btn btn-sm folder-chip-btn rounded-pill px-2 py-0" data-folder="folder1">folder1/</button>
+                <button type="button" class="btn btn-sm folder-chip-btn rounded-pill px-2 py-0" data-folder="folder2">folder2/</button>
+                <button type="button" class="btn btn-sm folder-chip-btn rounded-pill px-2 py-0" data-folder="folder3">folder3/</button>
+              </div>
             </div>
             
             <!-- Drag and Drop Zone -->
             <div class="drag-drop-zone d-flex flex-column align-items-center justify-content-center p-5 text-center mb-4" id="drop-zone">
               <i class="bi bi-file-earmark-arrow-up text-primary upload-cloud-pulse mb-3" style="font-size: 3.5rem;"></i>
-              <h3 class="h5 mb-2 fw-semibold text-body" id="drop-zone-title">Drag & Drop text file here</h3>
-              <p class="text-muted small mb-3">or select it from your device</p>
+              <h3 class="h5 mb-2 fw-semibold text-body" id="drop-zone-title">Drag & Drop text file(s) here</h3>
+              <p class="text-muted small mb-3" id="drop-zone-subtitle">or select single or multiple files from your device</p>
               <button class="btn btn-outline-primary px-4 py-2 rounded-pill" id="file-browse-btn" type="button">
                 Browse Files
               </button>
-              <!-- Hidden input file element -->
-              <input type="file" id="file-input" accept=".txt" class="d-none">
+              <!-- Hidden input file element with multiple attribute -->
+              <input type="file" id="file-input" accept=".txt" multiple class="d-none">
               <p class="text-muted small mt-3 mb-0" id="file-restrictions-text">
-                Accepts <strong>.txt</strong> files only (Max size: 10 MB)
+                Accepts <strong>.txt</strong> files only (Max: 10 MB per file) &bull; Multiple files supported
               </p>
             </div>
 
-            <!-- Pre-upload File Preview Container (Hidden by default) -->
+            <!-- Pre-upload File Queue & Preview Container (Hidden by default) -->
             <div class="preview-container card border-0 bg-preview-soft p-3 mb-4 d-none" id="preview-panel">
               <div class="d-flex justify-content-between align-items-center mb-2">
                 <span class="fw-semibold text-secondary small d-flex align-items-center">
-                  <i class="bi bi-filetype-txt text-primary me-2 fs-5"></i>
-                  File Preview: <span class="text-body fw-bold ms-1" id="preview-filename">-</span>
+                  <i class="bi bi-files text-primary me-2 fs-5"></i>
+                  Selected Files Queue: <span class="text-body fw-bold ms-1" id="preview-file-count">1 file</span>
                 </span>
                 <span class="badge bg-secondary-soft text-body rounded-pill px-2 py-1" id="preview-filesize">0 KB</span>
               </div>
-              <div class="preview-scroll-area">
-                <pre class="mb-0 text-muted font-monospace small" id="preview-text-content"></pre>
+
+              <!-- Selected files chips/list -->
+              <div class="selected-files-list mb-3" id="selected-files-list"></div>
+
+              <!-- Active File Content Preview -->
+              <div class="border-top border-light-subtle pt-2 mt-2" id="preview-content-wrapper">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <span class="small text-muted font-monospace">
+                    Preview: <strong class="text-body" id="preview-active-filename">-</strong>
+                  </span>
+                </div>
+                <div class="preview-scroll-area">
+                  <pre class="mb-0 text-muted font-monospace small" id="preview-text-content"></pre>
+                </div>
               </div>
             </div>
 
@@ -125,8 +181,25 @@
 
             <div class="alert alert-success d-none flex-row align-items-center border-0 p-3 mb-4" role="alert" id="success-alert">
               <i class="bi bi-check-circle-fill fs-4 me-3 text-success"></i>
-              <div class="small flex-grow-1" id="success-alert-msg">File uploaded successfully to S3 bucket!</div>
+              <div class="small flex-grow-1" id="success-alert-msg">Files uploaded successfully to S3 bucket!</div>
               <button type="button" class="btn-close ms-2" id="success-alert-close" aria-label="Close"></button>
+            </div>
+
+            <!-- Uploaded S3 File URLs Results Panel (Hidden by default) -->
+            <div class="uploaded-results-card card border-0 p-3 mb-4 d-none" id="results-panel">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-link-45deg text-primary fs-4 me-2"></i>
+                  <h3 class="h6 mb-0 fw-bold text-body">Uploaded S3 File URLs</h3>
+                </div>
+                <span class="badge bg-success-soft text-success rounded-pill px-2 py-1 font-monospace" id="results-count-badge">0 Files</span>
+              </div>
+              <p class="text-muted small mb-3">
+                Click <strong>Copy URL</strong> or <strong>Open</strong> to view uploaded files directly:
+              </p>
+              <div class="results-files-list d-flex flex-column gap-2" id="results-files-list">
+                <!-- Dynamically rendered uploaded file URLs with copy/open buttons -->
+              </div>
             </div>
 
             <!-- Upload / Action Buttons -->

@@ -68,13 +68,38 @@ def validate_uploaded_file(filename: str, file_size: int) -> bool:
     logger.info(f"File metadata validated successfully: {filename} ({file_size} bytes)")
     return True
 
-def create_success_response(message: str, filename: str, extra_info: Dict[str, Any] = None) -> Dict[str, Any]:
+def sanitize_folder_path(folder: str = None) -> str:
+    """
+    Sanitizes and normalizes an S3 folder prefix:
+    - Normalizes backslashes to forward slashes.
+    - Strips leading and trailing slashes and whitespace.
+    - Removes empty segments and directory traversal attempts (..).
+    
+    Args:
+        folder (str, optional): Target folder name/path.
+        
+    Returns:
+        str: Sanitized folder prefix without leading/trailing slashes, or empty string.
+    """
+    if not folder:
+        return ""
+    
+    # Replace Windows slashes with forward slashes
+    normalized = folder.replace("\\", "/").strip().strip("/")
+    if not normalized:
+        return ""
+        
+    # Filter out empty parts and parent dir traversal segments
+    parts = [part.strip() for part in normalized.split("/") if part.strip() and part.strip() not in (".", "..")]
+    return "/".join(parts)
+
+def create_success_response(message: str, filename: str = "", extra_info: Dict[str, Any] = None) -> Dict[str, Any]:
     """
     Constructs a standardized success response dictionary.
     
     Args:
         message (str): Descriptive success message.
-        filename (str): Name of the processed file.
+        filename (str, optional): Name of the processed file (or primary file).
         extra_info (Dict[str, Any], optional): Additional key-value pairs to include.
         
     Returns:
@@ -107,3 +132,4 @@ def create_error_response(message: str, error_detail: str = None) -> Dict[str, A
     if error_detail:
         response["detail"] = error_detail
     return response
+
