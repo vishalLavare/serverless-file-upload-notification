@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/SNS-Amazon_SNS-blue?style=for-the-badge&logo=amazonsns" alt="Amazon SNS" />
 </p>
 
-🚀 **[View Live Demo](https://vishallavare.github.io/Serverless-File-Processing-System/)**
+
 
 ---
 ## 📖 Project Overview
