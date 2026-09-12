@@ -1,5 +1,7 @@
 // Configuration settings
-const BACKEND_URL = "http://127.0.0.1:8000";
+// NOTE: When deploying to AWS, replace with your EC2 Public IP/Domain:
+// e.g., const BACKEND_URL = "http://<EC2_PUBLIC_IP>:8000";
+const BACKEND_URL = window.BACKEND_API_URL || "http://127.0.0.1:8000";
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_EXTENSION = ".txt";
 

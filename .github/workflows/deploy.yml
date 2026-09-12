@@ -1,0 +1,132 @@
+name: Deploy to EC2 via Docker & S3 Frontend
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  # =========================================================================
+  # 1. BUILD DOCKER IMAGE & DEPLOY TO EC2
+  # =========================================================================
+  deploy-backend:
+    name: Deploy Backend to EC2 via Docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Enable Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Create .env file from GitHub Secrets
+      - name: Create .env file from GitHub Secrets
+        run: |
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> backend/.env
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> backend/.env
+          echo "AWS_REGION=${{ secrets.AWS_REGION || 'ap-south-1' }}" >> backend/.env
+          echo "S3_BUCKET_NAME=${{ secrets.S3_STORAGE_BUCKET || secrets.S3_BUCKET_NAME }}" >> backend/.env
+          echo "HOST=0.0.0.0" >> backend/.env
+          echo "PORT=8000" >> backend/.env
+
+      # Build Docker image with GitHub cache
+      - name: Build Docker image with cache
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          load: true
+          tags: fastapi-app:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Show image size
+      - name: Show size of built Docker image
+        run: |
+          SIZE=$(docker image inspect fastapi-app:latest --format="{{.Size}}")
+          echo "Image Size: $(echo "scale=2; $SIZE/1024/1024" | bc) MB"
+
+      # Deploy to EC2
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST || vars.EC2_HOST_TEST }}
+          EC2_USER: ${{ secrets.EC2_USER || 'ubuntu' }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY || secrets.EC2_SSH_KEY }}
+        run: |
+          echo "$PRIVATE_KEY" > private-key.pem
+          chmod 600 private-key.pem
+
+          # Transfer .env file
+          scp -o StrictHostKeyChecking=no \
+            -i private-key.pem \
+            backend/.env $EC2_USER@$EC2_HOST:/home/$EC2_USER/.env
+
+          ssh -o StrictHostKeyChecking=no \
+            -i private-key.pem \
+            $EC2_USER@$EC2_HOST \
+            "chmod 600 /home/$EC2_USER/.env"
+
+          # Transfer Docker image via SSH pipe
+          docker save fastapi-app:latest | gzip | \
+          ssh -o StrictHostKeyChecking=no \
+            -i private-key.pem \
+            $EC2_USER@$EC2_HOST \
+            "gunzip | sudo docker load"
+
+          # Restart container on EC2
+          ssh -o StrictHostKeyChecking=no \
+            -i private-key.pem \
+            $EC2_USER@$EC2_HOST "
+              sudo docker stop fastapi-app || true
+              sudo docker rm -f fastapi-app || true
+
+              sudo docker run \
+                -d \
+                --restart=always \
+                --env-file /home/$EC2_USER/.env \
+                -p 8000:8000 \
+                --name fastapi-app \
+                fastapi-app:latest
+
+              # Cleanup dangling images
+              sudo docker image prune -f
+            "
+
+          rm -f private-key.pem
+
+
+  # =========================================================================
+  # 2. DEPLOY FRONTEND TO AWS S3 STATIC WEBSITE
+  # =========================================================================
+  deploy-frontend:
+    name: Deploy Frontend to S3
+    runs-on: ubuntu-latest
+    needs: deploy-backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-south-1' }}
+
+      - name: Inject EC2 Backend URL into Frontend Script
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST || vars.EC2_HOST_TEST }}
+        run: |
+          echo "🔧 Updating BACKEND_URL in frontend/script.js to http://$EC2_HOST:8000..."
+          sed -i "s|http://127.0.0.1:8000|http://$EC2_HOST:8000|g" frontend/script.js
+          grep "const BACKEND_URL" frontend/script.js
+
+      - name: Sync Frontend Assets to S3 Bucket
+        run: |
+          echo "📤 Uploading files to s3://${{ secrets.S3_FRONTEND_BUCKET }}..."
+          aws s3 sync frontend/ s3://${{ secrets.S3_FRONTEND_BUCKET }} --delete --cache-control "max-age=0, no-cache, no-store, must-revalidate"
+          echo "✅ S3 Frontend deployment finished successfully!"

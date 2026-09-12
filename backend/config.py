@@ -20,8 +20,8 @@ AWS_REGION = os.getenv("AWS_REGION", "ap-south-1").strip()
 # Target Amazon S3 bucket name
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "").strip()
 
-# Application Server settings
-HOST = os.getenv("HOST", "127.0.0.1").strip()
+# Application Server settings (0.0.0.0 binds to all network interfaces for EC2/Docker compatibility)
+HOST = os.getenv("HOST", "0.0.0.0").strip()
 PORT = int(os.getenv("PORT", "8000").strip())
 
 def is_aws_credentials_configured() -> bool:
