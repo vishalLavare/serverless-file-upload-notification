@@ -59,6 +59,30 @@ jobs:
           echo "$PRIVATE_KEY" > private-key.pem
           chmod 600 private-key.pem
 
+          # Ensure Docker is installed and running on EC2
+          echo "🔍 Checking Docker on EC2 instance..."
+          ssh -o StrictHostKeyChecking=no \
+            -i private-key.pem \
+            $EC2_USER@$EC2_HOST "
+              if ! command -v docker > /dev/null 2>&1; then
+                echo '🐳 Docker not found. Installing Docker...'
+                if command -v apt-get > /dev/null 2>&1; then
+                  sudo apt-get update -y
+                  sudo apt-get install -y docker.io
+                elif command -v dnf > /dev/null 2>&1; then
+                  sudo dnf install -y docker
+                elif command -v yum > /dev/null 2>&1; then
+                  sudo yum update -y && sudo yum install -y docker
+                fi
+                sudo systemctl enable --now docker || sudo service docker start
+                sudo usermod -aG docker \$USER || true
+                echo '✅ Docker installed successfully.'
+              else
+                echo '✅ Docker is already installed.'
+                sudo systemctl start docker || sudo service docker start || true
+              fi
+            "
+
           # Transfer .env file
           scp -o StrictHostKeyChecking=no \
             -i private-key.pem \
