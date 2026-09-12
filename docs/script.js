@@ -494,13 +494,11 @@ function startUploadProcess() {
   uploadStatusText.innerText = "Connecting to server...";
   hideAlerts();
 
-  // Create multipart/form-data payload with folder and multiple files
+  // Create multipart/form-data payload with folder and files
   const formData = new FormData();
   selectedFiles.forEach(file => {
     formData.append("files", file);
   });
-  // Also pass 'file' parameter for backward compatibility with single file
-  formData.append("file", selectedFiles[0]);
   formData.append("folder", targetFolder);
 
   const xhr = new XMLHttpRequest();

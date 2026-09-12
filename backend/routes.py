@@ -70,12 +70,22 @@ async def upload_file(
     Returns:
         JSONResponse: Standardized JSON success message with list of uploaded files, keys, and S3 URLs.
     """
-    # Consolidate uploaded files list
+    # Consolidate uploaded files list (mutually exclusive)
     upload_list: List[UploadFile] = []
     if files:
         upload_list.extend([f for f in files if f and f.filename])
-    if file and file.filename and file not in upload_list:
+    elif file and file.filename:
         upload_list.append(file)
+
+    # Deduplicate in case any client sends duplicate identical file objects
+    seen_names = set()
+    deduped_list: List[UploadFile] = []
+    for f in upload_list:
+        clean_name = os.path.basename(f.filename.replace("\\", "/"))
+        if clean_name not in seen_names:
+            seen_names.add(clean_name)
+            deduped_list.append(f)
+    upload_list = deduped_list
         
     if not upload_list:
         logger.warning("Upload rejected: No file provided in request.")
