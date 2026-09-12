@@ -32,6 +32,30 @@ def read_root():
     logger.info("Health check endpoint accessed.")
     return "Server Running"
 
+@router.post("/create-folder")
+async def create_folder_endpoint(folder: str = Form(...)):
+    """
+    Explicit endpoint to create a folder directory marker in S3.
+    """
+    clean_folder = sanitize_folder_path(folder)
+    if not clean_folder:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Folder name cannot be empty."
+        )
+    try:
+        res = s3_service.create_folder(clean_folder)
+        return create_success_response(
+            message=f"Folder '{clean_folder}' created in S3 bucket.",
+            extra_info=res
+        )
+    except Exception as e:
+        logger.exception(f"Error creating folder '{clean_folder}': {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create folder in S3: {str(e)}"
+        )
+
 @router.post("/upload")
 async def upload_file(
     file: Optional[UploadFile] = File(None),
