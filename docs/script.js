@@ -12,6 +12,7 @@ const themeToggleIcon = document.getElementById("theme-toggle-icon");
 
 // DOM Elements - Folder Selector
 const folderInput = document.getElementById("folder-input");
+const createFolderBtn = document.getElementById("create-folder-btn");
 const folderPathBadge = document.getElementById("folder-path-badge");
 const folderPresetBtns = document.querySelectorAll(".folder-preset-btn");
 const folderChipBtns = document.querySelectorAll(".folder-chip-btn");
@@ -104,6 +105,10 @@ function setupEventListeners() {
     folderInput.addEventListener("input", handleFolderInput);
   }
 
+  if (createFolderBtn) {
+    createFolderBtn.addEventListener("click", handleCreateFolderAction);
+  }
+
   folderPresetBtns.forEach(btn => {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
@@ -172,6 +177,54 @@ function setupEventListeners() {
 // ==========================================================================
 function handleFolderInput() {
   setTargetFolder(folderInput.value, false);
+}
+
+function handleCreateFolderAction() {
+  const rawValue = (folderInput ? folderInput.value : "").trim();
+  const clean = rawValue.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+  
+  if (!clean) {
+    showUploadError("Please type a folder name first (e.g. folder1, folder2, folder3).");
+    showToast("Enter a folder name to create in S3", "warning");
+    return;
+  }
+
+  if (createFolderBtn) {
+    createFolderBtn.disabled = true;
+    createFolderBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status"></span> Creating...`;
+  }
+
+  const formData = new FormData();
+  formData.append("folder", clean);
+
+  fetch(`${BACKEND_URL}/create-folder`, {
+    method: "POST",
+    body: formData
+  })
+    .then(async (res) => {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.status === "success") {
+        setTargetFolder(clean, true);
+        showToast(`Folder '${clean}/' created in S3 bucket!`, "success");
+        successAlertMsg.innerText = `Folder '${clean}/' created in Amazon S3. Ready for file uploads!`;
+        successAlert.classList.remove("d-none");
+      } else {
+        const err = data.detail || data.message || "Failed to create folder in S3.";
+        showUploadError(err);
+        showToast(err, "danger");
+      }
+    })
+    .catch((err) => {
+      console.error("Create folder request error:", err);
+      showUploadError("Could not reach backend to create folder.");
+      showToast("Backend connection failed.", "danger");
+    })
+    .finally(() => {
+      if (createFolderBtn) {
+        createFolderBtn.disabled = false;
+        createFolderBtn.innerHTML = `<i class="bi bi-folder-plus me-1"></i> Create`;
+      }
+    });
 }
 
 function setTargetFolder(folder, updateInput = true) {

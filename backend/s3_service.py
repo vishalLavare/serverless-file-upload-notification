@@ -66,6 +66,39 @@ class S3Service:
             logger.warning(f"Could not generate presigned URL for '{object_key}': {str(e)}")
             return ""
 
+    def create_folder(self, folder: str) -> dict:
+        """
+        Creates an explicit directory marker object (e.g. 'folder1/') in S3.
+        This ensures that the AWS S3 Management Console immediately displays
+        an actual folder icon and structure.
+        """
+        if not self.s3_client:
+            raise ValueError("S3 Client is not initialized.")
+        if not self.bucket_name:
+            raise ValueError("Target S3 Bucket Name is not configured.")
+
+        clean_folder = folder.replace("\\", "/").strip().strip("/")
+        if not clean_folder:
+            return {"folder": "", "key": ""}
+
+        folder_key = f"{clean_folder}/"
+        logger.info(f"Creating S3 folder marker: '{folder_key}' in bucket '{self.bucket_name}'...")
+        try:
+            self.s3_client.put_object(
+                Bucket=self.bucket_name,
+                Key=folder_key,
+                Body=b""
+            )
+            logger.info(f"Successfully verified S3 folder marker: '{folder_key}'")
+            return {
+                "folder": clean_folder,
+                "key": folder_key,
+                "s3_uri": f"s3://{self.bucket_name}/{folder_key}"
+            }
+        except Exception as e:
+            logger.warning(f"Could not create folder marker '{folder_key}': {str(e)}")
+            return {"folder": clean_folder, "key": folder_key}
+
     def upload_file_object(self, file_obj: BinaryIO, object_key: str) -> dict:
         """
         Uploads an open file-like object to the configured S3 Bucket.
@@ -95,6 +128,12 @@ class S3Service:
             raise ValueError(
                 "Target S3 Bucket Name is not configured. Please set the S3_BUCKET_NAME in your environment."
             )
+
+        # If object_key contains a folder prefix (e.g. folder1/file.txt or folder3/file.txt),
+        # also create the explicit S3 directory marker so S3 Console UI shows the folder
+        if "/" in object_key:
+            folder_part = object_key.rsplit("/", 1)[0]
+            self.create_folder(folder_part)
 
         logger.info(f"Initiating upload of file to S3: '{object_key}' in bucket '{self.bucket_name}'...")
         
